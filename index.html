@@ -27,7 +27,7 @@
         #gameUI.single-player-ui #p2Display { display: none !important; }
 
         .p-display { display: flex; align-items: center; width: 42%; transition: opacity 0.3s;}
-        .p-dead { opacity: 0.3; } /* 死亡時頭像變暗 */
+        .p-dead { opacity: 0.3; } 
         #p2Display { justify-content: flex-end; text-align: right; }
 
         .avatar {
@@ -81,13 +81,14 @@
             background-color: rgba(22, 33, 62, 0.98); display: flex; flex-direction: column;
             justify-content: center; align-items: center; border-radius: 8px; z-index: 10;
         }
-        .lobby-box { background: #0f3460; padding: 20px; border-radius: 10px; text-align: center; width: 85%; box-sizing: border-box; }
+        .lobby-box { background: #0f3460; padding: 20px; border-radius: 10px; text-align: center; width: 85%; box-sizing: border-box; position: relative; }
         
         input { 
             padding: 10px; width: 100%; box-sizing: border-box; margin-bottom: 10px; 
-            border-radius: 5px; border: none; font-size: 20px; text-align: center;
-            font-weight: bold; letter-spacing: 2px;
+            border-radius: 5px; border: none; font-size: 18px; text-align: center;
+            font-weight: bold;
         }
+        #joinCode { letter-spacing: 2px; font-size: 20px; }
         
         button.action-btn {
             background: #e74c3c; color: white; border: none; padding: 12px 15px; width: 100%; box-sizing: border-box;
@@ -96,13 +97,41 @@
         button.action-btn:hover { background: #c0392b; }
         .btn-single { background: #9b59b6 !important; }
         .btn-single:hover { background: #8e44ad !important; }
-        /* 新增：雙人同機按鈕樣式 */
         .btn-local { background: #e67e22 !important; }
         .btn-local:hover { background: #d35400 !important; }
         .btn-join { background: #2ecc71 !important; }
         .btn-join:hover { background: #27ae60 !important; }
         #statusText { margin-top: 15px; color: #f1c40f; font-weight: bold; word-break: break-all; font-size: 14px; text-align: center; padding: 0 10px;}
         
+        /* 排行榜按鈕與彈窗樣式 */
+        #btnShowLeaderboard {
+            position: absolute; top: -15px; right: -10px; background: #f1c40f; color: #1a1a2e;
+            border: 2px solid #f39c12; border-radius: 50px; padding: 5px 12px; font-weight: bold;
+            font-size: 14px; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+        }
+        #leaderboardModal {
+            display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85); z-index: 20; flex-direction: column; justify-content: center; align-items: center;
+        }
+        .leaderboard-content {
+            background: #2c3e50; border: 4px solid #f1c40f; border-radius: 10px; width: 80%;
+            max-height: 70%; display: flex; flex-direction: column; padding: 20px; box-sizing: border-box;
+        }
+        .leaderboard-title { color: #f1c40f; font-size: 22px; font-weight: bold; text-align: center; margin-bottom: 15px; }
+        .leaderboard-list {
+            list-style: none; padding: 0; margin: 0; overflow-y: auto; flex-grow: 1;
+        }
+        .leaderboard-item {
+            display: flex; justify-content: space-between; padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,0.1);
+            font-size: 16px; font-weight: bold; color: #ecf0f1;
+        }
+        .leaderboard-item span.rank { color: #f39c12; width: 30px; }
+        .leaderboard-item span.score { color: #2ecc71; }
+        #btnCloseLeaderboard {
+            margin-top: 15px; background: #e74c3c; color: white; border: none; padding: 10px;
+            border-radius: 5px; font-weight: bold; cursor: pointer;
+        }
+
         #mobileControls {
             display: flex; justify-content: space-between; width: 100%;
             margin-top: 15px; padding: 0 10px; box-sizing: border-box; gap: 5px;
@@ -116,7 +145,6 @@
         .touch-btn:active { background: rgba(255, 255, 255, 0.4); }
         .touch-btn-center { font-size: 14px; flex-grow: 1; font-weight: bold; text-align: center; width: auto;}
         
-        /* 雙人模式的專屬虛擬按鍵樣式 */
         .p2-controls { display: none; background: rgba(52, 152, 219, 0.2); border-color: rgba(52, 152, 219, 0.5); color: #3498db;}
         .p1-controls { background: rgba(46, 204, 113, 0.2); border-color: rgba(46, 204, 113, 0.5); color: #2ecc71;}
     </style>
@@ -146,9 +174,37 @@
 
         <canvas id="gameCanvas" width="400" height="600"></canvas>
         
+        <div id="leaderboardModal">
+            <div class="leaderboard-content">
+                <div class="leaderboard-title">🌍 模擬全球英雄榜</div>
+                <ul class="leaderboard-list" id="leaderboardList">
+                    </ul>
+                <button id="btnCloseLeaderboard">關閉</button>
+            </div>
+        </div>
+
         <div id="lobbyUI">
-            <h1 style="margin-top:0; font-size: 28px;">小朋友下樓梯</h1>
+            <h1 style="margin-top:0; font-size: 28px; margin-bottom: 10px;">小朋友下樓梯</h1>
+            
+            <div style="background: rgba(0, 0, 0, 0.3); padding: 10px 15px; border-radius: 8px; margin-bottom: 15px; text-align: left; border: 1px dashed rgba(255, 255, 255, 0.3); width: 85%; box-sizing: border-box;">
+                <div style="color: #f1c40f; font-weight: bold; font-size: 14px; margin-bottom: 6px; text-align: center;">📖 遊戲說明</div>
+                <div id="instructionText" style="color: #ecf0f1; font-size: 13px; line-height: 1.6;">
+                    透過左右移動不斷往下跳，避開陷阱地塊！<br>
+                    <div style="text-align: center; margin-top: 5px;">
+                        <span style="color:#f39c12; font-weight:bold;">點擊下方按鈕可切換困難模式。</span>
+                    </div>
+                </div>
+            </div>
+
             <div class="lobby-box">
+                <button id="btnShowLeaderboard">🏆 英雄榜</button>
+                
+                <input type="text" id="playerNameInput" placeholder="請輸入你的暱稱 (紀錄用)" maxlength="10">
+
+                <button id="btnToggleHard" style="background: #34495e; color: white; border: 2px solid #7f8c8d; padding: 10px; width: 100%; border-radius: 5px; font-size: 16px; cursor: pointer; margin-bottom: 15px; font-weight: bold; transition: 0.3s; box-sizing: border-box;">
+                    🟢 模式：普通 (點擊切換困難)
+                </button>
+
                 <button class="action-btn btn-single" id="btnSingle">🕹️ 單機遊戲 (1P)</button>
                 <button class="action-btn btn-local" id="btnLocal">👯 雙人同機 (2P Local)</button>
                 <hr style="border-color: rgba(255,255,255,0.1); margin: 15px 0;">
@@ -157,15 +213,13 @@
                 <input type="tel" id="joinCode" placeholder="輸入 4 位數代碼" maxlength="4" style="margin-top: 5px;">
                 <button class="action-btn btn-join" id="btnJoin">🚀 加入房間 (Client)</button>
             </div>
-            <p id="statusText">準備就緒！請選擇遊戲模式。</p>
+            <p id="statusText">準備就緒！請輸入暱稱並選擇模式。</p>
         </div>
 
         <div id="mobileControls">
             <div class="touch-btn p2-controls" id="btnA">A</div>
             <div class="touch-btn p2-controls" id="btnD">D</div>
-            
             <div class="touch-btn touch-btn-center" id="btnRestart">重來</div>
-            
             <div class="touch-btn p1-controls" id="btnLeft">⬅️</div>
             <div class="touch-btn p1-controls" id="btnRight">➡️</div>
         </div>
@@ -179,6 +233,73 @@
         const uiLobby = document.getElementById('lobbyUI');
         const statusText = document.getElementById('statusText');
         const joinCodeInput = document.getElementById('joinCode');
+        const playerNameInput = document.getElementById('playerNameInput');
+        const btnToggleHard = document.getElementById('btnToggleHard');
+        const instructionText = document.getElementById('instructionText');
+
+        // --- 排行榜系統 (模擬後端儲存) ---
+        const LEADERBOARD_KEY = 'kidDownstair_leaderboard';
+        const modalLeaderboard = document.getElementById('leaderboardModal');
+        const listLeaderboard = document.getElementById('leaderboardList');
+        
+        // 取得排行榜資料
+        function getScores() {
+            const data = localStorage.getItem(LEADERBOARD_KEY);
+            return data ? JSON.parse(data) : [];
+        }
+
+        // 儲存分數到排行榜
+        function saveScoreToLeaderboard(name, score, modeStr) {
+            let scores = getScores();
+            // 檢查是否大於 0 分才記錄
+            if (score <= 0) return;
+            
+            scores.push({ name: name || '無名英雄', score: score, mode: modeStr, date: new Date().toLocaleDateString() });
+            // 依分數降序排列
+            scores.sort((a, b) => b.score - a.score);
+            // 只保留前 10 名
+            scores = scores.slice(0, 10);
+            localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(scores));
+        }
+
+        // 顯示排行榜 UI
+        document.getElementById('btnShowLeaderboard').onclick = () => {
+            const scores = getScores();
+            listLeaderboard.innerHTML = '';
+            
+            if (scores.length === 0) {
+                listLeaderboard.innerHTML = '<div style="text-align:center; color:#bdc3c7; margin-top: 20px;">目前還沒有人上榜喔！<br>快去挑戰吧！</div>';
+            } else {
+                scores.forEach((entry, index) => {
+                    const li = document.createElement('li');
+                    li.className = 'leaderboard-item';
+                    const rankEmoji = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
+                    li.innerHTML = `
+                        <div style="display:flex; align-items:center;">
+                            <span class="rank">${rankEmoji}</span>
+                            <span style="max-width: 100px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${entry.name}</span>
+                            <span style="font-size:10px; color:#7f8c8d; margin-left:5px;">(${entry.mode})</span>
+                        </div>
+                        <span class="score">B${entry.score}</span>
+                    `;
+                    listLeaderboard.appendChild(li);
+                });
+            }
+            modalLeaderboard.style.display = 'flex';
+        };
+
+        document.getElementById('btnCloseLeaderboard').onclick = () => {
+            modalLeaderboard.style.display = 'none';
+        };
+        // -----------------------------
+
+        // 讀取上次輸入的暱稱
+        const savedName = localStorage.getItem('kidDownstair_playerName');
+        if (savedName) playerNameInput.value = savedName;
+
+        playerNameInput.addEventListener('change', (e) => {
+            localStorage.setItem('kidDownstair_playerName', e.target.value.trim());
+        });
 
         // 音效系統
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -196,25 +317,47 @@
             osc.connect(gain); gain.connect(audioCtx.destination); osc.start(); osc.stop(audioCtx.currentTime + 0.3);
         }
 
-        // 網路與遊戲模式變數
-        const GAME_PREFIX = 'kid-downstair-v1-'; 
+        const GAME_PREFIX = 'kid-downstair-v2-'; 
         let peer = null; let conn = null; 
-        
-        // 模式: 'single', 'local', 'online_host', 'online_client'
         let currentMode = 'single'; 
+        let isHardMode = false; 
         
-        // --- 玩家資料結構 ---
+        btnToggleHard.onclick = () => {
+            isHardMode = !isHardMode;
+            if (isHardMode) {
+                btnToggleHard.innerHTML = '🔥 模式：困難 (有道具與新陷阱)';
+                btnToggleHard.style.background = '#8e44ad';
+                btnToggleHard.style.borderColor = '#9b59b6';
+                instructionText.innerHTML = `
+                    <span style="color:#e74c3c; font-weight:bold;">【困難模式啟動】新增以下元素：</span><br>
+                    🟣 <b>彈簧床</b>：一踩就起飛，小心撞到天花板扣血！<br>
+                    🟤 <b>泥沼地</b>：移動速度大減，很難躲避陷阱。<br>
+                    ❤️ <b>回復藥水</b>：隨機出現，吃到補 3 滴血。<br>
+                    ☠️ <b>致命毒藥</b>：偽裝成道具，吃到扣 3 滴血。
+                `;
+            } else {
+                btnToggleHard.innerHTML = '🟢 模式：普通 (點擊切換困難)';
+                btnToggleHard.style.background = '#34495e';
+                btnToggleHard.style.borderColor = '#7f8c8d';
+                instructionText.innerHTML = `
+                    透過左右移動不斷往下跳，避開陷阱地塊！<br>
+                    <div style="text-align: center; margin-top: 5px;">
+                        <span style="color:#f39c12; font-weight:bold;">點擊下方按鈕可切換困難模式。</span>
+                    </div>
+                `;
+            }
+        };
+
         function createPlayer(sprite, color, startX) {
             return {
                 sprite: sprite, color: color, x: startX, y: 100, width: 24, height: 32,
-                vx: 0, vy: 0, speed: 6, gravity: 0.6, maxHp: 10, hp: 10, 
+                vx: 0, vy: 0, speed: 6, currentSpeed: 6, gravity: 0.6, maxHp: 10, hp: 10, 
                 invulnerableFrames: 0, isDead: false, lastHealedId: -1, lastHurtId: -1
             };
         }
         let p1 = createPlayer('😎', '#2ecc71', 250); 
-        let p2 = createPlayer('🤠', '#3498db', 150); // 負責 Local P2 或 Online 對手
+        let p2 = createPlayer('🤠', '#3498db', 150); 
 
-        // 退出大廳邏輯
         function returnToLobby() {
             gameState = STATE_WAITING; 
             if (conn) { conn.close(); conn = null; }
@@ -225,9 +368,7 @@
             uiLobby.style.display = 'flex';
             statusText.innerText = "已返回大廳！請選擇遊戲模式。";
             
-            // 隱藏 P2 的虛擬按鍵
             document.querySelectorAll('.p2-controls').forEach(el => el.style.display = 'none');
-            
             ctx.fillStyle = '#16213e'; ctx.fillRect(0, 0, canvas.width, canvas.height); 
         }
 
@@ -235,33 +376,34 @@
 
         function setUIConfig(mode) {
             uiContainer.style.display = 'flex';
-            uiContainer.className = ''; // 重置 class
+            uiContainer.className = ''; 
             document.getElementById('p1Display').classList.remove('p-dead');
             document.getElementById('p2Display').classList.remove('p-dead');
 
+            const p1CustomName = playerNameInput.value.trim() || '玩家 1';
+
             if (mode === 'single') {
                 uiContainer.classList.add('single-player-ui');
-                document.getElementById('p1Name').innerText = '單機玩家';
+                document.getElementById('p1Name').innerText = p1CustomName;
                 document.querySelectorAll('.p2-controls').forEach(el => el.style.display = 'none');
             } else if (mode === 'local') {
-                document.getElementById('p1Name').innerText = 'P1 (方向鍵)';
+                document.getElementById('p1Name').innerText = p1CustomName + ' (P1)';
                 document.getElementById('p2Name').innerText = 'P2 (A與D鍵)';
                 document.getElementById('p2Avatar').innerText = p2.sprite;
                 document.querySelectorAll('.p2-controls').forEach(el => el.style.display = 'flex');
             } else if (mode === 'online_host') {
-                document.getElementById('p1Name').innerText = '房主 (我)';
+                document.getElementById('p1Name').innerText = p1CustomName + ' (房主)';
                 document.getElementById('p2Name').innerText = '連線中...';
                 document.getElementById('p2Avatar').innerText = '❓';
                 document.querySelectorAll('.p2-controls').forEach(el => el.style.display = 'none');
             } else if (mode === 'online_client') {
-                document.getElementById('p1Name').innerText = '客人 (我)';
+                document.getElementById('p1Name').innerText = p1CustomName + ' (客人)';
                 document.getElementById('p2Name').innerText = '房主 (對手)';
-                document.getElementById('p2Avatar').innerText = '😎'; // 房主固定是綠色笑臉
+                document.getElementById('p2Avatar').innerText = '😎'; 
                 document.querySelectorAll('.p2-controls').forEach(el => el.style.display = 'none');
             }
         }
 
-        // --- 模式按鈕綁定 ---
         document.getElementById('btnSingle').onclick = () => {
             currentMode = 'single'; setUIConfig('single'); uiLobby.style.display = 'none'; 
             if (!isAudioInitialized) { audioCtx.resume(); isAudioInitialized = true; }
@@ -285,7 +427,10 @@
             });
             peer.on('connection', (connection) => { 
                 if (gameState !== STATE_WAITING) return; 
-                conn = connection; setupConnectionEvent(); 
+                conn = connection; 
+                conn.on('open', () => {
+                    setupConnectionEvent(); 
+                });
             });
             peer.on('error', (err) => {
                 if (err.type === 'unavailable-id') { statusText.innerText = "代碼衝突，請重試！"; if (peer) peer.destroy(); }
@@ -296,7 +441,6 @@
             const code = joinCodeInput.value.trim();
             if (!code || code.length !== 4 || isNaN(code)) { alert("請輸入正確的 4 位數代碼！"); return; }
             currentMode = 'online_client'; 
-            // 為了讓 P1 永遠顯示在左側UI，線上 Client 時，將 p1 視為自己(藍色)，p2 視為對手(綠色)
             p1 = createPlayer('🤠', '#3498db', 200); 
             p2 = createPlayer('😎', '#2ecc71', 200); 
             setUIConfig('online_client');
@@ -312,69 +456,91 @@
         function setupConnectionEvent() {
             if (!isAudioInitialized) { audioCtx.resume(); isAudioInitialized = true; }
             uiLobby.style.display = 'none'; 
+
+            conn.on('data', (data) => {
+                if (data.type === 'clientReady' && currentMode === 'online_host') {
+                    startGame();
+                }
+                if (data.type === 'initGame') { 
+                    startGame(); 
+                    platforms = data.platforms; 
+                    platformSpeed = data.speed;
+                    
+                    if (platforms.length > 0) {
+                        p1.x = platforms[0].x + 40; p1.y = platforms[0].y - 32;
+                        p2.x = platforms[0].x; p2.y = platforms[0].y - 32;
+                    }
+                }
+                if (data.type === 'syncPlatforms') { platforms = data.platforms; platformSpeed = data.speed; floorCount = data.floorCount; }
+                if (data.type === 'syncPlayer') { Object.assign(p2, data.player); } 
+                if (data.type === 'gameOver') { triggerGameOver(); }
+            });
+
+            conn.on('close', () => { if (gameState !== STATE_WAITING) { alert("對方已斷線！"); returnToLobby(); } });
             
             if (currentMode === 'online_host') {
                 document.getElementById('p2Name').innerText = '客人 (對手)'; 
                 document.getElementById('p2Avatar').innerText = '🤠';
-            } 
+                setUIConfig('online_host');
+                ctx.fillStyle = '#16213e'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = '#f1c40f'; ctx.font = 'bold 20px Arial'; ctx.textAlign = 'center';
+                ctx.fillText('等待對手準備中...', canvas.width / 2, canvas.height / 2);
+                ctx.textAlign = 'left'; 
+            } else {
+                setUIConfig('online_client');
+                ctx.fillStyle = '#16213e'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = '#f1c40f'; ctx.font = 'bold 20px Arial'; ctx.textAlign = 'center';
+                ctx.fillText('連線成功！等待房主載入地形...', canvas.width / 2, canvas.height / 2);
+                ctx.textAlign = 'left'; 
 
-            conn.on('close', () => { if (gameState !== STATE_WAITING) { alert("對方已斷線！"); returnToLobby(); } });
-            conn.on('data', (data) => {
-                if (data.type === 'syncPlatforms') { platforms = data.platforms; platformSpeed = data.speed; floorCount = data.floorCount; }
-                if (data.type === 'syncPlayer') { Object.assign(p2, data.player); } // 接收對方(p2)狀態
-                if (data.type === 'gameOver') { gameState = STATE_GAMEOVER; }
-                if (data.type === 'restart') { startGame(); }
-            });
-            startGame(); 
+                setTimeout(() => {
+                    conn.send({ type: 'clientReady' });
+                }, 500);
+            }
         }
 
-        // --- 遊戲核心 ---
         const STATE_WAITING = 0; const STATE_PLAYING = 1; const STATE_GAMEOVER = 2;
         let gameState = STATE_WAITING;
         let platforms = []; let floorCount = 0; let platformSpeed = 2.0; let platformSpawnRate = 60; let spawnTimer = 0; let platformIdCounter = 0; 
+        let syncCounter = 0; let hasSavedScore = false; // 防止重複記錄分數
+        
         const BASE_SPEED = 2.0; const MAX_SPEED = 6.5; const PLATFORM_GAP = 120;
-        const TYPES = { NORMAL: 0, SPIKE: 1, CONVEYOR_LEFT: 2, CONVEYOR_RIGHT: 3, FAKE: 4 };
+        
+        const TYPES = { NORMAL: 0, SPIKE: 1, CONVEYOR_LEFT: 2, CONVEYOR_RIGHT: 3, FAKE: 4, TRAMPOLINE: 5, MUD: 6 };
+        const ITEMS = { NONE: 0, POTION: 1, POISON: 2 };
 
-        // 支援兩組輸入
         const keys = { ArrowLeft: false, ArrowRight: false, KeyA: false, KeyD: false, Space: false };
 
         function handleInput(code, isDown, e) {
             if (e && e.cancelable) e.preventDefault(); 
             if (keys.hasOwnProperty(code)) keys[code] = isDown;
             if (!isAudioInitialized) { audioCtx.resume(); isAudioInitialized = true; }
+            
             if (code === 'Space' && isDown && gameState === STATE_GAMEOVER) {
                 if (currentMode === 'online_host' || currentMode === 'single' || currentMode === 'local') {
-                    if (conn) conn.send({ type: 'restart' });
-                    startGame();
+                    startGame(); 
                 }
             }
         }
         window.addEventListener('keydown', (e) => handleInput(e.code, true, null));
         window.addEventListener('keyup', (e) => handleInput(e.code, false, null));
         
-        // P1 觸控 (右側)
         document.getElementById('btnLeft').addEventListener('touchstart', (e) => handleInput('ArrowLeft', true, e));
         document.getElementById('btnLeft').addEventListener('touchend', (e) => handleInput('ArrowLeft', false, e));
         document.getElementById('btnRight').addEventListener('touchstart', (e) => handleInput('ArrowRight', true, e));
         document.getElementById('btnRight').addEventListener('touchend', (e) => handleInput('ArrowRight', false, e));
-        
-        // P2 觸控 (左側，僅 Local 顯示)
         document.getElementById('btnA').addEventListener('touchstart', (e) => handleInput('KeyA', true, e));
         document.getElementById('btnA').addEventListener('touchend', (e) => handleInput('KeyA', false, e));
         document.getElementById('btnD').addEventListener('touchstart', (e) => handleInput('KeyD', true, e));
         document.getElementById('btnD').addEventListener('touchend', (e) => handleInput('KeyD', false, e));
-        
         document.getElementById('btnRestart').addEventListener('touchstart', (e) => handleInput('Space', true, e));
         
         function updateDOMUI() {
             document.getElementById('floorDisplay').innerText = `B${floorCount}`;
-            
-            // P1 UI
             document.getElementById('p1HpBar').style.width = (p1.hp / p1.maxHp * 100) + '%';
             if (p1.hp <= 3 && !p1.isDead) document.getElementById('p1HpBar').classList.add('hp-low'); else document.getElementById('p1HpBar').classList.remove('hp-low');
             if (p1.isDead) document.getElementById('p1Display').classList.add('p-dead'); else document.getElementById('p1Display').classList.remove('p-dead');
 
-            // P2 UI
             if (currentMode !== 'single') {
                 document.getElementById('p2HpBar').style.width = (p2.hp / p2.maxHp * 100) + '%';
                 if (p2.hp <= 3 && !p2.isDead) document.getElementById('p2HpBar').classList.add('hp-low'); else document.getElementById('p2HpBar').classList.remove('hp-low');
@@ -385,55 +551,84 @@
         function spawnPlatform(yPosition) {
             const xPosition = Math.random() * (canvas.width - 100);
             let rand = Math.random(); let type = TYPES.NORMAL;
-            if (rand > 0.85) type = TYPES.FAKE; else if (rand > 0.75) type = TYPES.CONVEYOR_RIGHT; else if (rand > 0.65) type = TYPES.CONVEYOR_LEFT; else if (rand > 0.50) type = TYPES.SPIKE;
-            platforms.push({ id: platformIdCounter++, x: xPosition, y: yPosition || canvas.height, width: 100, height: 12, type: type, active: true, stepTimer: 0 });
+            let item = ITEMS.NONE;
+            
+            if (isHardMode) {
+                if (rand > 0.85) type = TYPES.FAKE; 
+                else if (rand > 0.65) type = TYPES.SPIKE; 
+                else if (rand > 0.55) type = TYPES.CONVEYOR_RIGHT; 
+                else if (rand > 0.45) type = TYPES.CONVEYOR_LEFT; 
+                else if (rand > 0.30) type = TYPES.TRAMPOLINE;
+                else if (rand > 0.15) type = TYPES.MUD;
+                
+                if ((type === TYPES.NORMAL || type === TYPES.MUD) && Math.random() > 0.7) {
+                    item = Math.random() > 0.5 ? ITEMS.POTION : ITEMS.POISON;
+                }
+            } else {
+                if (rand > 0.85) type = TYPES.FAKE; else if (rand > 0.75) type = TYPES.CONVEYOR_RIGHT; else if (rand > 0.65) type = TYPES.CONVEYOR_LEFT; else if (rand > 0.50) type = TYPES.SPIKE;
+            }
+            
+            platforms.push({ id: platformIdCounter++, x: xPosition, y: yPosition || canvas.height, width: 100, height: 12, type: type, active: true, stepTimer: 0, item: item });
         }
 
         function startGame() {
             floorCount = 0; platformSpeed = BASE_SPEED; platformSpawnRate = Math.floor(PLATFORM_GAP / platformSpeed);
-            spawnTimer = 0; platforms = []; platformIdCounter = 0;
+            spawnTimer = 0; platforms = []; platformIdCounter = 0; syncCounter = 0;
+            hasSavedScore = false; // 重置分數儲存狀態
             
-            // 重置玩家
             Object.assign(p1, createPlayer(p1.sprite, p1.color, canvas.width/2 + 20));
             Object.assign(p2, createPlayer(p2.sprite, p2.color, canvas.width/2 - 40));
             
             btnHome.style.display = 'block'; 
 
-            // 生成初始平台 (單機、雙機同機、線上房主負責)
             if (currentMode !== 'online_client') {
-                for (let i = 1; i <= 5; i++) { spawnPlatform(i * 120); platforms[i-1].type = TYPES.NORMAL; }
+                for (let i = 1; i <= 5; i++) { spawnPlatform(i * 120); platforms[i-1].type = TYPES.NORMAL; platforms[i-1].item = ITEMS.NONE; }
                 p1.x = platforms[0].x + 40; p1.y = platforms[0].y - 32;
                 p2.x = platforms[0].x; p2.y = platforms[0].y - 32;
+                
+                if (currentMode === 'online_host' && conn) {
+                    conn.send({ type: 'initGame', platforms: platforms, speed: platformSpeed });
+                }
             }
             
             gameState = STATE_PLAYING;
             requestAnimationFrame(update);
         }
 
-        // 抽出共用的玩家物理更新邏輯
         function updatePlayerPhysics(player, leftPressed, rightPressed) {
             if (player.isDead) return;
             
             if (player.invulnerableFrames > 0) player.invulnerableFrames--;
-            if (leftPressed) player.vx = -player.speed; else if (rightPressed) player.vx = player.speed; else player.vx = 0;
+            
+            if (leftPressed) player.vx = -player.currentSpeed; else if (rightPressed) player.vx = player.currentSpeed; else player.vx = 0;
             
             player.x += player.vx;
-            // 穿牆
             if (player.x + player.width < 0) player.x = canvas.width; if (player.x > canvas.width) player.x = -player.width;
             
             player.vy += player.gravity; player.y += player.vy;
             
-            // 碰到天花板刺
             if (player.y <= 15) { 
                 if (player.invulnerableFrames <= 0) { player.hp -= 3; player.invulnerableFrames = 40; playSound('hurt'); }
                 player.y = 16; player.vy = 2;
             }
 
-            // 平台碰撞檢測
+            player.currentSpeed = player.speed; 
+
             for (let i = 0; i < platforms.length; i++) {
                 let plt = platforms[i];
-                if (plt.active && player.vy >= 0 && player.y + player.height >= plt.y && player.y + player.height <= plt.y + platformSpeed + player.vy + 2 && player.x + player.width > plt.x && player.x < plt.x + plt.width) {
+                if (plt.active && player.vy >= 0 && player.y + player.height >= plt.y && player.y + player.height <= plt.y + platformSpeed + player.vy + 24 && player.x + player.width > plt.x && player.x < plt.x + plt.width) {
+                    
                     player.y = plt.y - player.height; player.vy = 0;
+
+                    if (plt.item !== ITEMS.NONE) {
+                        if (plt.item === ITEMS.POTION && plt.id !== player.lastHealedId) {
+                            player.hp = Math.min(player.maxHp, player.hp + 3); 
+                            playSound('heal'); player.lastHealedId = plt.id; plt.item = ITEMS.NONE; 
+                        } else if (plt.item === ITEMS.POISON && plt.id !== player.lastHurtId) {
+                            player.hp -= 3; playSound('hurt'); player.invulnerableFrames = 40; player.lastHurtId = plt.id; plt.item = ITEMS.NONE; 
+                        }
+                    }
+
                     switch (plt.type) {
                         case TYPES.NORMAL:
                             if (player.hp < player.maxHp && plt.id !== player.lastHealedId) { player.hp++; playSound('heal'); player.lastHealedId = plt.id; }
@@ -449,17 +644,32 @@
                                 if(currentMode === 'online_host' && conn) conn.send({type: 'syncPlatforms', platforms: platforms, speed: platformSpeed, floorCount: floorCount}); 
                             } 
                             break;
+                        case TYPES.TRAMPOLINE:
+                            player.vy = -13; playSound('heal'); 
+                            break;
+                        case TYPES.MUD:
+                            player.currentSpeed = 1.5; 
+                            break;
                     }
                 }
             }
-            // 掉落死亡判斷
             if (player.y > canvas.height || player.hp <= 0) { player.isDead = true; player.hp = 0; }
+        }
+
+        // 觸發遊戲結束並記錄分數
+        function triggerGameOver() {
+            gameState = STATE_GAMEOVER;
+            if (!hasSavedScore) {
+                const pName = playerNameInput.value.trim() || '無名英雄';
+                const modeStr = isHardMode ? '困難' : '普通';
+                saveScoreToLeaderboard(pName, floorCount, modeStr);
+                hasSavedScore = true;
+            }
         }
 
         function update() {
             if (gameState !== STATE_PLAYING) return;
             
-            // 平台生成與移動 (房主、單機、雙人同機負責)
             if (currentMode !== 'online_client') {
                 spawnTimer++;
                 if (spawnTimer >= platformSpawnRate) {
@@ -472,33 +682,40 @@
                     if (plt.type === TYPES.FAKE && plt.stepTimer > 0) { plt.stepTimer++; if (plt.stepTimer > 15) plt.active = false; }
                 }
                 if (platforms.length > 0 && platforms[0].y + 12 < 0) platforms.shift();
-                
-                if (currentMode === 'online_host' && conn) {
-                    conn.send({ type: 'syncPlatforms', platforms: platforms, speed: platformSpeed, floorCount: floorCount });
+            } else {
+                for (let i = 0; i < platforms.length; i++) {
+                    platforms[i].y -= platformSpeed;
                 }
             }
 
-            // 更新玩家 1 狀態 (無論什麼模式，P1 都是本機控制)
             updatePlayerPhysics(p1, keys.ArrowLeft, keys.ArrowRight);
-            
-            // 如果是雙人同機，更新玩家 2 狀態
             if (currentMode === 'local') {
                 updatePlayerPhysics(p2, keys.KeyA, keys.KeyD);
             }
 
-            // 同步線上資料
-            if (currentMode === 'online_host' || currentMode === 'online_client') {
-                if (conn) conn.send({ type: 'syncPlayer', player: p1 });
+            syncCounter++;
+            if (currentMode === 'online_host' && conn) {
+                if (syncCounter % 4 === 0) {
+                    conn.send({ type: 'syncPlatforms', platforms: platforms, speed: platformSpeed, floorCount: floorCount });
+                }
+            }
+            
+            if ((currentMode === 'online_host' || currentMode === 'online_client') && conn) {
+                if (syncCounter % 2 === 0) {
+                    conn.send({ type: 'syncPlayer', player: p1 });
+                }
             }
 
-            // 遊戲結束判斷
+            // 判斷遊戲是否結束
             if (currentMode === 'single') {
-                if (p1.isDead) gameState = STATE_GAMEOVER;
+                if (p1.isDead) triggerGameOver();
             } else if (currentMode === 'local') {
-                // 雙人同機：兩人都死才結束
-                if (p1.isDead && p2.isDead) gameState = STATE_GAMEOVER;
+                if (p1.isDead && p2.isDead) triggerGameOver();
             } else if (currentMode === 'online_host') {
-                if (p1.isDead && p2.isDead) { gameState = STATE_GAMEOVER; if(conn) conn.send({ type: 'gameOver' }); }
+                if (p1.isDead && p2.isDead) { 
+                    triggerGameOver(); 
+                    if(conn) conn.send({ type: 'gameOver' }); 
+                }
             }
             
             updateDOMUI(); 
@@ -508,14 +725,11 @@
 
         function drawCharacter(player) {
             if (player.isDead) return;
-            if (player.invulnerableFrames > 0 && Math.floor(Date.now() / 100) % 2 === 0) return; // 閃爍
+            if (player.invulnerableFrames > 0 && Math.floor(Date.now() / 100) % 2 === 0) return; 
             ctx.fillStyle = player.color;
             ctx.font = '30px Arial'; ctx.textAlign = 'center'; 
             ctx.fillText(player.sprite, player.x + 12, player.y + 26); 
             ctx.textAlign = 'left';
-            
-            // 如果是連線對手，加點半透明區分 (可選)
-            // if (currentMode.includes('online') && player === p2) ctx.globalAlpha = 0.5;
         }
 
         function draw() {
@@ -533,9 +747,24 @@
                 else if (plt.type === TYPES.CONVEYOR_LEFT) { ctx.fillStyle = '#3498db'; ctx.fillRect(plt.x, plt.y, plt.width, plt.height); ctx.fillStyle = 'white'; ctx.fillText('⏪ ⏪', plt.x + 20, plt.y + 10); }
                 else if (plt.type === TYPES.CONVEYOR_RIGHT) { ctx.fillStyle = '#3498db'; ctx.fillRect(plt.x, plt.y, plt.width, plt.height); ctx.fillStyle = 'white'; ctx.fillText('⏩ ⏩', plt.x + 20, plt.y + 10); }
                 else if (plt.type === TYPES.FAKE) { ctx.fillStyle = plt.stepTimer > 0 ? '#d7ccc8' : '#8d6e63'; ctx.fillRect(plt.x, plt.y, plt.width, plt.height); }
+                else if (plt.type === TYPES.TRAMPOLINE) { 
+                    ctx.fillStyle = '#9b59b6'; ctx.fillRect(plt.x, plt.y, plt.width, plt.height);
+                    ctx.fillStyle = '#e0b0ff'; ctx.fillRect(plt.x, plt.y, plt.width, 4); 
+                }
+                else if (plt.type === TYPES.MUD) { 
+                    ctx.fillStyle = '#5d4037'; ctx.fillRect(plt.x, plt.y, plt.width, plt.height);
+                    ctx.fillStyle = '#3e2723'; ctx.fillRect(plt.x, plt.y, plt.width, 4); 
+                }
+
+                if (plt.item === ITEMS.POTION) {
+                    ctx.font = '16px Arial';
+                    ctx.fillText('❤️', plt.x + plt.width/2 - 8, plt.y - 2);
+                } else if (plt.item === ITEMS.POISON) {
+                    ctx.font = '16px Arial';
+                    ctx.fillText('☠️', plt.x + plt.width/2 - 8, plt.y - 2);
+                }
             });
 
-            // 繪製玩家
             if (currentMode !== 'single') drawCharacter(p2);
             drawCharacter(p1);
             
@@ -545,7 +774,7 @@
                 ctx.fillText('遊戲結束', canvas.width / 2, canvas.height / 2 - 20);
                 ctx.font = '20px Arial'; ctx.fillText(`最終抵達：地下 ${floorCount} 層`, canvas.width / 2, canvas.height / 2 + 30);
                 if (currentMode !== 'online_client') {
-                    ctx.fillStyle = '#f1c40f'; ctx.fillText('按畫面下方【重來】', canvas.width / 2, canvas.height / 2 + 80);
+                    ctx.fillStyle = '#f1c40f'; ctx.fillText('按空白鍵或【重來】', canvas.width / 2, canvas.height / 2 + 80);
                 } else {
                     ctx.fillStyle = '#bdc3c7'; ctx.fillText('等待房主重新開始...', canvas.width / 2, canvas.height / 2 + 80);
                 }
@@ -553,7 +782,7 @@
             }
         }
         
-        draw(); // 初始背景
+        draw();
     </script>
 </body>
 </html>
