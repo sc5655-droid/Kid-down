@@ -5,23 +5,41 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>小朋友下樓梯 - 友情破壞版</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-database-compat.js"></script>
+    
     <style>
+        /* --- 響應式 (RWD) 核心設定 --- */
         body {
-            margin: 0; padding: 0; background-color: #1a1a2e; color: white;
-            display: flex; justify-content: center; align-items: center; height: 100vh;
+            margin: 0; padding: 0; 
+            background-color: #0b1021; /* 外圍深色背景，適合寬螢幕電腦 */
+            color: white; 
+            display: flex; justify-content: center; align-items: center; 
+            height: 100dvh; /* 使用 dvh 適應手機瀏覽器上下工具列的縮放 */
+            width: 100vw; 
             font-family: 'Segoe UI', 'Noto Sans TC', Tahoma, Geneva, Verdana, sans-serif; 
-            flex-direction: column; overflow: hidden; 
-        }
-        .game-container { 
-            position: relative; width: 100%; max-width: 400px; 
-            display: flex; flex-direction: column; align-items: center;
+            overflow: hidden; 
+            touch-action: none; /* ⚠️ 關鍵：防止手機下拉重新整理或手勢干擾 */
         }
 
+        .game-container { 
+            position: relative; 
+            width: 100%; 
+            height: 100%; 
+            max-width: 500px; /* 電腦上限制最大寬度，維持遊戲體驗 */
+            background-color: #1a1a2e;
+            display: flex; 
+            flex-direction: column; 
+            box-shadow: 0 0 20px rgba(0,0,0,0.8);
+        }
+
+        /* --- 頂部 UI --- */
         #gameUI {
             display: flex; justify-content: space-between; align-items: center;
-            width: 100%; background: #0f3460; border: 4px solid #0f3460;
-            border-bottom: none; border-top-left-radius: 8px; border-top-right-radius: 8px;
-            padding: 10px; box-sizing: border-box; height: 70px;
+            width: 100%; background: #0f3460; 
+            padding: 10px; box-sizing: border-box; 
+            height: 70px; flex-shrink: 0; /* 防止被擠壓 */
+            z-index: 2;
         }
         #gameUI.single-player-ui { justify-content: center; gap: 20px; }
         #gameUI.single-player-ui #p2Display { display: none !important; }
@@ -68,20 +86,44 @@
             cursor: pointer; z-index: 5; display: none; 
             box-shadow: 0 4px 6px rgba(0,0,0,0.3); backdrop-filter: blur(2px);
         }
-        #btnHome:active { background: #c0392b; }
 
+        /* --- 遊戲畫布 (響應式核心) --- */
         #gameCanvas {
-            background-color: #16213e; border: 4px solid #0f3460;
-            border-top: none; border-bottom-left-radius: 8px; border-bottom-right-radius: 8px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.8); max-width: 100%; height: auto;
+            width: 100%; 
+            flex-grow: 1; /* 自動填滿頂部UI與底部按鈕之間的空間 */
+            height: 0; /* Flexbox 技巧：讓它完全根據可用空間伸縮 */
+            background-color: #16213e; 
+            box-shadow: inset 0 10px 30px rgba(0,0,0,0.8);
+            object-fit: fill; /* 視覺上拉伸填滿，不改變內部物理座標 */
         }
         
+        /* --- 底部控制區 --- */
+        #mobileControls {
+            display: flex; justify-content: space-between; width: 100%;
+            padding: 10px; box-sizing: border-box; gap: 5px;
+            background: #0f3460; flex-shrink: 0;
+            height: 80px; z-index: 2;
+        }
+        .touch-btn {
+            background: rgba(255, 255, 255, 0.1); border: 2px solid rgba(255, 255, 255, 0.3);
+            color: white; font-size: 24px; border-radius: 10px;
+            display: flex; justify-content: center; align-items: center;
+            user-select: none; cursor: pointer; flex-grow: 1;
+        }
+        .touch-btn:active { background: rgba(255, 255, 255, 0.4); }
+        .touch-btn-center { font-size: 16px; font-weight: bold; max-width: 80px; }
+        .p2-controls { display: none; background: rgba(52, 152, 219, 0.2); border-color: rgba(52, 152, 219, 0.5); color: #3498db;}
+        .p1-controls { background: rgba(46, 204, 113, 0.2); border-color: rgba(46, 204, 113, 0.5); color: #2ecc71;}
+
+        /* --- 大廳與彈窗 --- */
         #lobbyUI {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background-color: rgba(22, 33, 62, 0.98); display: flex; flex-direction: column;
-            justify-content: center; align-items: center; border-radius: 8px; z-index: 10;
+            justify-content: center; align-items: center; z-index: 10;
+            overflow-y: auto; /* 手機螢幕太小時允許滾動 */
+            padding: 20px 0;
         }
-        .lobby-box { background: #0f3460; padding: 20px; border-radius: 10px; text-align: center; width: 85%; box-sizing: border-box; position: relative; }
+        .lobby-box { background: #0f3460; padding: 20px; border-radius: 10px; text-align: center; width: 85%; max-width: 400px; box-sizing: border-box; position: relative; margin-top: auto; margin-bottom: auto;}
         
         input { 
             padding: 10px; width: 100%; box-sizing: border-box; margin-bottom: 10px; 
@@ -96,14 +138,10 @@
         }
         button.action-btn:hover { background: #c0392b; }
         .btn-single { background: #9b59b6 !important; }
-        .btn-single:hover { background: #8e44ad !important; }
         .btn-local { background: #e67e22 !important; }
-        .btn-local:hover { background: #d35400 !important; }
         .btn-join { background: #2ecc71 !important; }
-        .btn-join:hover { background: #27ae60 !important; }
         #statusText { margin-top: 15px; color: #f1c40f; font-weight: bold; word-break: break-all; font-size: 14px; text-align: center; padding: 0 10px;}
         
-        /* 排行榜按鈕與彈窗樣式 */
         #btnShowLeaderboard {
             position: absolute; top: -15px; right: -10px; background: #f1c40f; color: #1a1a2e;
             border: 2px solid #f39c12; border-radius: 50px; padding: 5px 12px; font-weight: bold;
@@ -114,7 +152,7 @@
             background: rgba(0,0,0,0.85); z-index: 20; flex-direction: column; justify-content: center; align-items: center;
         }
         .leaderboard-content {
-            background: #2c3e50; border: 4px solid #f1c40f; border-radius: 10px; width: 80%;
+            background: #2c3e50; border: 4px solid #f1c40f; border-radius: 10px; width: 85%; max-width: 400px;
             max-height: 70%; display: flex; flex-direction: column; padding: 20px; box-sizing: border-box;
         }
         .leaderboard-title { color: #f1c40f; font-size: 22px; font-weight: bold; text-align: center; margin-bottom: 15px; }
@@ -131,22 +169,6 @@
             margin-top: 15px; background: #e74c3c; color: white; border: none; padding: 10px;
             border-radius: 5px; font-weight: bold; cursor: pointer;
         }
-
-        #mobileControls {
-            display: flex; justify-content: space-between; width: 100%;
-            margin-top: 15px; padding: 0 10px; box-sizing: border-box; gap: 5px;
-        }
-        .touch-btn {
-            background: rgba(255, 255, 255, 0.1); border: 2px solid rgba(255, 255, 255, 0.3);
-            color: white; font-size: 24px; width: 60px; height: 60px; border-radius: 10px;
-            display: flex; justify-content: center; align-items: center;
-            user-select: none; touch-action: manipulation; cursor: pointer; flex-shrink: 0;
-        }
-        .touch-btn:active { background: rgba(255, 255, 255, 0.4); }
-        .touch-btn-center { font-size: 14px; flex-grow: 1; font-weight: bold; text-align: center; width: auto;}
-        
-        .p2-controls { display: none; background: rgba(52, 152, 219, 0.2); border-color: rgba(52, 152, 219, 0.5); color: #3498db;}
-        .p1-controls { background: rgba(46, 204, 113, 0.2); border-color: rgba(46, 204, 113, 0.5); color: #2ecc71;}
     </style>
 </head>
 <body>
@@ -174,11 +196,18 @@
 
         <canvas id="gameCanvas" width="400" height="600"></canvas>
         
+        <div id="mobileControls">
+            <div class="touch-btn p2-controls" id="btnA">A</div>
+            <div class="touch-btn p2-controls" id="btnD">D</div>
+            <div class="touch-btn touch-btn-center" id="btnRestart">重來</div>
+            <div class="touch-btn p1-controls" id="btnLeft">⬅️</div>
+            <div class="touch-btn p1-controls" id="btnRight">➡️</div>
+        </div>
+
         <div id="leaderboardModal">
             <div class="leaderboard-content">
-                <div class="leaderboard-title">🌍 模擬全球英雄榜</div>
-                <ul class="leaderboard-list" id="leaderboardList">
-                    </ul>
+                <div class="leaderboard-title">🌍 真正的全球英雄榜</div>
+                <ul class="leaderboard-list" id="leaderboardList"></ul>
                 <button id="btnCloseLeaderboard">關閉</button>
             </div>
         </div>
@@ -186,7 +215,7 @@
         <div id="lobbyUI">
             <h1 style="margin-top:0; font-size: 28px; margin-bottom: 10px;">小朋友下樓梯</h1>
             
-            <div style="background: rgba(0, 0, 0, 0.3); padding: 10px 15px; border-radius: 8px; margin-bottom: 15px; text-align: left; border: 1px dashed rgba(255, 255, 255, 0.3); width: 85%; box-sizing: border-box;">
+            <div style="background: rgba(0, 0, 0, 0.3); padding: 10px 15px; border-radius: 8px; margin-bottom: 15px; text-align: left; border: 1px dashed rgba(255, 255, 255, 0.3); width: 85%; max-width: 400px; box-sizing: border-box;">
                 <div style="color: #f1c40f; font-weight: bold; font-size: 14px; margin-bottom: 6px; text-align: center;">📖 遊戲說明</div>
                 <div id="instructionText" style="color: #ecf0f1; font-size: 13px; line-height: 1.6;">
                     透過左右移動不斷往下跳，避開陷阱地塊！<br>
@@ -215,17 +244,72 @@
             </div>
             <p id="statusText">準備就緒！請輸入暱稱並選擇模式。</p>
         </div>
-
-        <div id="mobileControls">
-            <div class="touch-btn p2-controls" id="btnA">A</div>
-            <div class="touch-btn p2-controls" id="btnD">D</div>
-            <div class="touch-btn touch-btn-center" id="btnRestart">重來</div>
-            <div class="touch-btn p1-controls" id="btnLeft">⬅️</div>
-            <div class="touch-btn p1-controls" id="btnRight">➡️</div>
-        </div>
     </div>
 
     <script>
+        // --- 真正的全球排行榜系統 (Firebase) ---
+        const modalLeaderboard = document.getElementById('leaderboardModal');
+        const listLeaderboard = document.getElementById('leaderboardList');
+
+        // 保留你的 Firebase 設定
+        const firebaseConfig = {
+            apiKey: "AIzaSyBraFSgvOerlQtwdcf9zGL6g3XRed6jMRk",
+            authDomain: "index-21a30.firebaseapp.com",
+            databaseURL: "https://index-21a30-default-rtdb.firebaseio.com",
+            projectId: "index-21a30",
+            storageBucket: "index-21a30.firebasestorage.app",
+            messagingSenderId: "574499643111",
+            appId: "1:574499643111:web:6cc064455fa01b5b6f8c42",
+            measurementId: "G-VC9J5FFXQ7"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        function saveScoreToLeaderboard(name, score, modeStr) {
+            if (score <= 0) return; 
+            db.ref('global_leaderboard').push({
+                name: name || '無名英雄', score: score, mode: modeStr, date: new Date().toLocaleDateString()
+            }).catch(error => console.error("分數上傳失敗：", error));
+        }
+
+        document.getElementById('btnShowLeaderboard').onclick = () => {
+            modalLeaderboard.style.display = 'flex';
+            listLeaderboard.innerHTML = '<div style="text-align:center; color:#f1c40f; margin-top: 20px;">📡 正在連接全球衛星獲取排名...</div>';
+            
+            db.ref('global_leaderboard').orderByChild('score').limitToLast(10).once('value', (snapshot) => {
+                let scores = [];
+                snapshot.forEach((childSnapshot) => { scores.push(childSnapshot.val()); });
+                scores.reverse();
+                listLeaderboard.innerHTML = '';
+                
+                if (scores.length === 0) {
+                    listLeaderboard.innerHTML = '<div style="text-align:center; color:#bdc3c7; margin-top: 20px;">目前還沒有人上榜喔！<br>快去挑戰吧！</div>';
+                } else {
+                    scores.forEach((entry, index) => {
+                        const li = document.createElement('li');
+                        li.className = 'leaderboard-item';
+                        const rankEmoji = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
+                        li.innerHTML = `
+                            <div style="display:flex; align-items:center;">
+                                <span class="rank">${rankEmoji}</span>
+                                <span style="max-width: 100px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${entry.name}</span>
+                                <span style="font-size:10px; color:#7f8c8d; margin-left:5px;">(${entry.mode})</span>
+                            </div>
+                            <span class="score">B${entry.score}</span>
+                        `;
+                        listLeaderboard.appendChild(li);
+                    });
+                }
+            }).catch((error) => {
+                listLeaderboard.innerHTML = `<div style="text-align:center; color:#e74c3c; margin-top: 20px;">讀取失敗 🥲<br>請確認 Firebase 資料庫權限。</div>`;
+                console.error("Firebase 讀取錯誤:", error);
+            });
+        };
+
+        document.getElementById('btnCloseLeaderboard').onclick = () => modalLeaderboard.style.display = 'none';
+
+        // --- 遊戲邏輯 ---
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         const uiContainer = document.getElementById('gameUI');
@@ -237,63 +321,6 @@
         const btnToggleHard = document.getElementById('btnToggleHard');
         const instructionText = document.getElementById('instructionText');
 
-        // --- 排行榜系統 (模擬後端儲存) ---
-        const LEADERBOARD_KEY = 'kidDownstair_leaderboard';
-        const modalLeaderboard = document.getElementById('leaderboardModal');
-        const listLeaderboard = document.getElementById('leaderboardList');
-        
-        // 取得排行榜資料
-        function getScores() {
-            const data = localStorage.getItem(LEADERBOARD_KEY);
-            return data ? JSON.parse(data) : [];
-        }
-
-        // 儲存分數到排行榜
-        function saveScoreToLeaderboard(name, score, modeStr) {
-            let scores = getScores();
-            // 檢查是否大於 0 分才記錄
-            if (score <= 0) return;
-            
-            scores.push({ name: name || '無名英雄', score: score, mode: modeStr, date: new Date().toLocaleDateString() });
-            // 依分數降序排列
-            scores.sort((a, b) => b.score - a.score);
-            // 只保留前 10 名
-            scores = scores.slice(0, 10);
-            localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(scores));
-        }
-
-        // 顯示排行榜 UI
-        document.getElementById('btnShowLeaderboard').onclick = () => {
-            const scores = getScores();
-            listLeaderboard.innerHTML = '';
-            
-            if (scores.length === 0) {
-                listLeaderboard.innerHTML = '<div style="text-align:center; color:#bdc3c7; margin-top: 20px;">目前還沒有人上榜喔！<br>快去挑戰吧！</div>';
-            } else {
-                scores.forEach((entry, index) => {
-                    const li = document.createElement('li');
-                    li.className = 'leaderboard-item';
-                    const rankEmoji = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
-                    li.innerHTML = `
-                        <div style="display:flex; align-items:center;">
-                            <span class="rank">${rankEmoji}</span>
-                            <span style="max-width: 100px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${entry.name}</span>
-                            <span style="font-size:10px; color:#7f8c8d; margin-left:5px;">(${entry.mode})</span>
-                        </div>
-                        <span class="score">B${entry.score}</span>
-                    `;
-                    listLeaderboard.appendChild(li);
-                });
-            }
-            modalLeaderboard.style.display = 'flex';
-        };
-
-        document.getElementById('btnCloseLeaderboard').onclick = () => {
-            modalLeaderboard.style.display = 'none';
-        };
-        // -----------------------------
-
-        // 讀取上次輸入的暱稱
         const savedName = localStorage.getItem('kidDownstair_playerName');
         if (savedName) playerNameInput.value = savedName;
 
@@ -301,7 +328,6 @@
             localStorage.setItem('kidDownstair_playerName', e.target.value.trim());
         });
 
-        // 音效系統
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         let isAudioInitialized = false;
         function playSound(type) {
@@ -428,9 +454,7 @@
             peer.on('connection', (connection) => { 
                 if (gameState !== STATE_WAITING) return; 
                 conn = connection; 
-                conn.on('open', () => {
-                    setupConnectionEvent(); 
-                });
+                conn.on('open', () => { setupConnectionEvent(); });
             });
             peer.on('error', (err) => {
                 if (err.type === 'unavailable-id') { statusText.innerText = "代碼衝突，請重試！"; if (peer) peer.destroy(); }
@@ -458,14 +482,9 @@
             uiLobby.style.display = 'none'; 
 
             conn.on('data', (data) => {
-                if (data.type === 'clientReady' && currentMode === 'online_host') {
-                    startGame();
-                }
+                if (data.type === 'clientReady' && currentMode === 'online_host') { startGame(); }
                 if (data.type === 'initGame') { 
-                    startGame(); 
-                    platforms = data.platforms; 
-                    platformSpeed = data.speed;
-                    
+                    startGame(); platforms = data.platforms; platformSpeed = data.speed;
                     if (platforms.length > 0) {
                         p1.x = platforms[0].x + 40; p1.y = platforms[0].y - 32;
                         p2.x = platforms[0].x; p2.y = platforms[0].y - 32;
@@ -492,20 +511,16 @@
                 ctx.fillStyle = '#f1c40f'; ctx.font = 'bold 20px Arial'; ctx.textAlign = 'center';
                 ctx.fillText('連線成功！等待房主載入地形...', canvas.width / 2, canvas.height / 2);
                 ctx.textAlign = 'left'; 
-
-                setTimeout(() => {
-                    conn.send({ type: 'clientReady' });
-                }, 500);
+                setTimeout(() => { conn.send({ type: 'clientReady' }); }, 500);
             }
         }
 
         const STATE_WAITING = 0; const STATE_PLAYING = 1; const STATE_GAMEOVER = 2;
         let gameState = STATE_WAITING;
         let platforms = []; let floorCount = 0; let platformSpeed = 2.0; let platformSpawnRate = 60; let spawnTimer = 0; let platformIdCounter = 0; 
-        let syncCounter = 0; let hasSavedScore = false; // 防止重複記錄分數
+        let syncCounter = 0; let hasSavedScore = false; 
         
         const BASE_SPEED = 2.0; const MAX_SPEED = 6.5; const PLATFORM_GAP = 120;
-        
         const TYPES = { NORMAL: 0, SPIKE: 1, CONVEYOR_LEFT: 2, CONVEYOR_RIGHT: 3, FAKE: 4, TRAMPOLINE: 5, MUD: 6 };
         const ITEMS = { NONE: 0, POTION: 1, POISON: 2 };
 
@@ -573,8 +588,7 @@
 
         function startGame() {
             floorCount = 0; platformSpeed = BASE_SPEED; platformSpawnRate = Math.floor(PLATFORM_GAP / platformSpeed);
-            spawnTimer = 0; platforms = []; platformIdCounter = 0; syncCounter = 0;
-            hasSavedScore = false; // 重置分數儲存狀態
+            spawnTimer = 0; platforms = []; platformIdCounter = 0; syncCounter = 0; hasSavedScore = false; 
             
             Object.assign(p1, createPlayer(p1.sprite, p1.color, canvas.width/2 + 20));
             Object.assign(p2, createPlayer(p2.sprite, p2.color, canvas.width/2 - 40));
@@ -585,10 +599,7 @@
                 for (let i = 1; i <= 5; i++) { spawnPlatform(i * 120); platforms[i-1].type = TYPES.NORMAL; platforms[i-1].item = ITEMS.NONE; }
                 p1.x = platforms[0].x + 40; p1.y = platforms[0].y - 32;
                 p2.x = platforms[0].x; p2.y = platforms[0].y - 32;
-                
-                if (currentMode === 'online_host' && conn) {
-                    conn.send({ type: 'initGame', platforms: platforms, speed: platformSpeed });
-                }
+                if (currentMode === 'online_host' && conn) { conn.send({ type: 'initGame', platforms: platforms, speed: platformSpeed }); }
             }
             
             gameState = STATE_PLAYING;
@@ -597,9 +608,7 @@
 
         function updatePlayerPhysics(player, leftPressed, rightPressed) {
             if (player.isDead) return;
-            
             if (player.invulnerableFrames > 0) player.invulnerableFrames--;
-            
             if (leftPressed) player.vx = -player.currentSpeed; else if (rightPressed) player.vx = player.currentSpeed; else player.vx = 0;
             
             player.x += player.vx;
@@ -644,19 +653,14 @@
                                 if(currentMode === 'online_host' && conn) conn.send({type: 'syncPlatforms', platforms: platforms, speed: platformSpeed, floorCount: floorCount}); 
                             } 
                             break;
-                        case TYPES.TRAMPOLINE:
-                            player.vy = -13; playSound('heal'); 
-                            break;
-                        case TYPES.MUD:
-                            player.currentSpeed = 1.5; 
-                            break;
+                        case TYPES.TRAMPOLINE: player.vy = -13; playSound('heal'); break;
+                        case TYPES.MUD: player.currentSpeed = 1.5; break;
                     }
                 }
             }
             if (player.y > canvas.height || player.hp <= 0) { player.isDead = true; player.hp = 0; }
         }
 
-        // 觸發遊戲結束並記錄分數
         function triggerGameOver() {
             gameState = STATE_GAMEOVER;
             if (!hasSavedScore) {
@@ -683,44 +687,28 @@
                 }
                 if (platforms.length > 0 && platforms[0].y + 12 < 0) platforms.shift();
             } else {
-                for (let i = 0; i < platforms.length; i++) {
-                    platforms[i].y -= platformSpeed;
-                }
+                for (let i = 0; i < platforms.length; i++) { platforms[i].y -= platformSpeed; }
             }
 
             updatePlayerPhysics(p1, keys.ArrowLeft, keys.ArrowRight);
-            if (currentMode === 'local') {
-                updatePlayerPhysics(p2, keys.KeyA, keys.KeyD);
-            }
+            if (currentMode === 'local') { updatePlayerPhysics(p2, keys.KeyA, keys.KeyD); }
 
             syncCounter++;
             if (currentMode === 'online_host' && conn) {
-                if (syncCounter % 4 === 0) {
-                    conn.send({ type: 'syncPlatforms', platforms: platforms, speed: platformSpeed, floorCount: floorCount });
-                }
+                if (syncCounter % 4 === 0) { conn.send({ type: 'syncPlatforms', platforms: platforms, speed: platformSpeed, floorCount: floorCount }); }
             }
             
             if ((currentMode === 'online_host' || currentMode === 'online_client') && conn) {
-                if (syncCounter % 2 === 0) {
-                    conn.send({ type: 'syncPlayer', player: p1 });
-                }
+                if (syncCounter % 2 === 0) { conn.send({ type: 'syncPlayer', player: p1 }); }
             }
 
-            // 判斷遊戲是否結束
-            if (currentMode === 'single') {
-                if (p1.isDead) triggerGameOver();
-            } else if (currentMode === 'local') {
-                if (p1.isDead && p2.isDead) triggerGameOver();
-            } else if (currentMode === 'online_host') {
-                if (p1.isDead && p2.isDead) { 
-                    triggerGameOver(); 
-                    if(conn) conn.send({ type: 'gameOver' }); 
-                }
+            if (currentMode === 'single') { if (p1.isDead) triggerGameOver(); }
+            else if (currentMode === 'local') { if (p1.isDead && p2.isDead) triggerGameOver(); }
+            else if (currentMode === 'online_host') {
+                if (p1.isDead && p2.isDead) { triggerGameOver(); if(conn) conn.send({ type: 'gameOver' }); }
             }
             
-            updateDOMUI(); 
-            draw();
-            requestAnimationFrame(update);
+            updateDOMUI(); draw(); requestAnimationFrame(update);
         }
 
         function drawCharacter(player) {
@@ -756,13 +744,8 @@
                     ctx.fillStyle = '#3e2723'; ctx.fillRect(plt.x, plt.y, plt.width, 4); 
                 }
 
-                if (plt.item === ITEMS.POTION) {
-                    ctx.font = '16px Arial';
-                    ctx.fillText('❤️', plt.x + plt.width/2 - 8, plt.y - 2);
-                } else if (plt.item === ITEMS.POISON) {
-                    ctx.font = '16px Arial';
-                    ctx.fillText('☠️', plt.x + plt.width/2 - 8, plt.y - 2);
-                }
+                if (plt.item === ITEMS.POTION) { ctx.font = '16px Arial'; ctx.fillText('❤️', plt.x + plt.width/2 - 8, plt.y - 2); } 
+                else if (plt.item === ITEMS.POISON) { ctx.font = '16px Arial'; ctx.fillText('☠️', plt.x + plt.width/2 - 8, plt.y - 2); }
             });
 
             if (currentMode !== 'single') drawCharacter(p2);
